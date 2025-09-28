@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Data Converter (JSON/CSV/Excel)</title>
+    <!-- Load Tailwind CSS via CDN for simple styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .container-card {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 0 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        textarea, select, input[type="file"], button {
+            transition: all 0.2s;
+        }
+        button:hover {
+            box-shadow: 0 4px 15px rgba(66, 153, 225, 0.4);
+        }
+        .preview-box {
+            min-height: 200px;
+            max-height: 500px;
+            overflow: auto;
+            white-space: pre-wrap; /* Preserve formatting but wrap long lines */
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-blue-700 mb-2">
+                Simple Data Format Converter
+            </h1>
+            <p class="text-gray-500">JSON ↔ CSV ↔ Excel, powered by Python & Pandas.</p>
+        </header>
+
+        <!-- Main Converter Card -->
+        <div id="converter-card" class="container-card bg-white p-6 md:p-10 rounded-xl">
+            <form id="conversionForm" class="space-y-6" enctype="multipart/form-data">
+
+                <!-- 1. Input Source and Format Selection -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Input Source -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">1. Choose Input Source</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="dataSource" value="file" checked class="form-radio text-blue-600 h-4 w-4" onchange="toggleInputMode('file')">
+                                <span class="ml-2 text-gray-700">File Upload (.json, .csv, .xlsx)</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="dataSource" value="paste" class="form-radio text-blue-600 h-4 w-4" onchange="toggleInputMode('paste')">
+                                <span class="ml-2 text-gray-700">Paste Text (JSON/CSV)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Input Format Selector -->
+                    <div>
+                        <label for="inputFormat" class="block text-sm font-medium text-gray-700 mb-2">2. Select Input Format</label>
+                        <select id="inputFormat" name="inputFormat" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel (.xlsx)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 3. Input Data Area -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">3. Provide Data</label>
+                    <div id="file-input-group">
+                        <input type="file" id="file" name="file" class="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100" />
+                    </div>
+                    <div id="paste-input-group" class="hidden">
+                        <textarea id="pastedData" name="pastedData" rows="6" placeholder="Paste your CSV or JSON data here..." class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <p id="paste-note" class="text-sm text-red-500 mt-2 hidden">Note: Excel conversion is only available via file upload.</p>
+                </div>
+
+
+                <!-- 4. Output Format and Convert Button -->
+                <div class="flex flex-col md:flex-row items-center justify-between gap-6 pt-4 border-t border-gray-100">
+                    <div class="w-full md:w-1/2">
+                        <label for="outputFormat" class="block text-sm font-medium text-gray-700 mb-2">4. Select Output Format</label>
+                        <select id="outputFormat" name="outputFormat" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
+                            <option value="csv">CSV</option>
+                            <option value="json">JSON</option>
+                            <option value="excel">Excel (.xlsx)</option>
+                        </select>
+                    </div>
+
+                    <div class="w-full md:w-1/2 md:pt-8">
+                        <button type="submit" id="convertBtn" class="w-full py-3 px-6 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50" disabled>
+                            Convert & Preview
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Result and Preview Area -->
+        <div id="result-area" class="mt-8 p-6 bg-white rounded-xl container-card hidden">
+            <h2 class="text-xl font-bold text-gray-700 mb-4">Conversion Result Preview</h2>
+            <div id="loadingIndicator" class="text-center py-10 hidden">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p class="mt-2 text-blue-600">Converting data...</p>
+            </div>
+            
+            <div id="errorMessage" class="hidden bg-red-50 text-red-700 p-4 rounded-lg border border-red-200"></div>
+
+            <pre id="preview" class="preview-box bg-gray-50 p-4 rounded-lg text-sm text-gray-800 border border-gray-200"></pre>
+
+            <button id="downloadBtn" class="mt-4 py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
+                Download Converted File
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('conversionForm');
+            const fileInput = document.getElementById('file');
+            const pasteInput = document.getElementById('pastedData');
+            const inputFormatSelect = document.getElementById('inputFormat');
+            const outputFormatSelect = document.getElementById('outputFormat');
+            const dataSourceRadios = document.getElementsByName('dataSource');
+            const convertBtn = document.getElementById('convertBtn');
+            const resultArea = document.getElementById('result-area');
+            const preview = document.getElementById('preview');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const errorMessage = document.getElementById('errorMessage');
+
+            let lastConversionResult = null;
+            let currentDataSource = 'file';
+
+            // --- UI Helper Functions ---
+
+            /** Enables/Disables the convert button based on input availability. */
+            const updateConvertButton = () => {
+                let canConvert = false;
+                if (currentDataSource === 'file') {
+                    canConvert = fileInput.files.length > 0;
+                } else if (currentDataSource === 'paste') {
+                    canConvert = pasteInput.value.trim().length > 0;
+                }
+                convertBtn.disabled = !canConvert;
+            };
+
+            /** Toggles visibility between file upload and paste textarea. */
+            window.toggleInputMode = (mode) => {
+                currentDataSource = mode;
+                const isFileMode = mode === 'file';
+                
+                document.getElementById('file-input-group').classList.toggle('hidden', !isFileMode);
+                document.getElementById('paste-input-group').classList.toggle('hidden', isFileMode);
+                
+                // Clear the hidden input to ensure only one source is used
+                if (isFileMode) {
+                    pasteInput.value = '';
+                    document.getElementById('paste-note').classList.add('hidden');
+                } else {
+                    fileInput.value = null; // Clear file input
+                    // Show note if input format is Excel
+                    if (inputFormatSelect.value === 'excel') {
+                        document.getElementById('paste-note').classList.remove('hidden');
+                    }
+                }
+                updateConvertButton();
+            };
+
+            /** Handles changes to the input format dropdown. */
+            const handleInputFormatChange = () => {
+                // Prevent pasting text for Excel format
+                const isExcelInput = inputFormatSelect.value === 'excel';
+                const pasteNote = document.getElementById('paste-note');
+
+                if (isExcelInput) {
+                    // Force file mode if Excel is selected
+                    dataSourceRadios.forEach(radio => {
+                        if (radio.value === 'file') {
+                            radio.checked = true;
+                        }
+                        radio.disabled = (radio.value === 'paste');
+                    });
+                    // Show the note for paste mode if selected
+                    if (currentDataSource === 'paste') {
+                       pasteNote.classList.remove('hidden');
+                    }
+                    toggleInputMode('file');
+                } else {
+                    // Re-enable paste radio
+                    dataSourceRadios.forEach(radio => radio.disabled = false);
+                    pasteNote.classList.add('hidden');
+                }
+                updateConvertButton();
+            };
+
+
+            // --- Main Conversion Logic ---
+
+            /** Handles the form submission to the Flask backend. */
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Reset state
+                resultArea.classList.add('hidden');
+                preview.textContent = '';
+                downloadBtn.disabled = true;
+                errorMessage.classList.add('hidden');
+                errorMessage.textContent = '';
+                loadingIndicator.classList.remove('hidden');
+
+                const inputFormat = inputFormatSelect.value;
+                const outputFormat = outputFormatSelect.value;
+                const formData = new FormData();
+
+                formData.append('inputFormat', inputFormat);
+                formData.append('outputFormat', outputFormat);
+                formData.append('dataSource', currentDataSource);
+
+                if (currentDataSource === 'file' && fileInput.files.length > 0) {
+                    formData.append('file', fileInput.files[0]);
+                } else if (currentDataSource === 'paste' && pasteInput.value.trim() !== '') {
+                    formData.append('pastedData', pasteInput.value);
+                } else {
+                    // Should be caught by updateConvertButton, but good for safety
+                    loadingIndicator.classList.add('hidden');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/convert', {
+                        method: 'POST',
+                        body: formData // FormData handles multipart/form-data
+                    });
+
+                    const result = await response.json();
+                    loadingIndicator.classList.add('hidden');
+                    resultArea.classList.remove('hidden');
+
+                    if (response.ok && result.success) {
+                        lastConversionResult = result;
+                        downloadBtn.disabled = false;
+
+                        // Display preview
+                        let contentToPreview = result.content;
+                        if (result.isBase64) {
+                            // Can't preview Excel binary, show a message instead
+                            contentToPreview = `Binary data (${outputFormat.toUpperCase()}) successfully generated. Click 'Download' to save the file.`;
+                            preview.style.whiteSpace = 'normal'; // Reset for message
+                        } else {
+                            // If it's JSON, pretty-print it for a better preview
+                            if (outputFormat === 'json') {
+                                try {
+                                    contentToPreview = JSON.stringify(JSON.parse(contentToPreview), null, 2);
+                                } catch (e) {
+                                    // Fallback for non-standard JSON
+                                }
+                            }
+                            preview.style.whiteSpace = 'pre-wrap';
+                        }
+                        preview.textContent = contentToPreview;
+
+                    } else {
+                        throw new Error(result.error || 'Unknown conversion error.');
+                    }
+                } catch (error) {
+                    loadingIndicator.classList.add('hidden');
+                    resultArea.classList.remove('hidden');
+                    errorMessage.textContent = `Conversion failed: ${error.message}`;
+                    errorMessage.classList.remove('hidden');
+                    lastConversionResult = null;
+                    downloadBtn.disabled = true;
+                }
+            });
+
+            /** Handles the file download based on the last conversion result. */
+            downloadBtn.addEventListener('click', () => {
+                if (!lastConversionResult) return;
+
+                const { content, mimeType, isBase64, outputFormat } = lastConversionResult;
+                const fileExtension = outputFormat;
+                const fileName = `converted_data.${fileExtension}`;
+
+                // Create a blob from the content
+                let blob;
+                if (isBase64) {
+                    // Handle binary (Excel)
+                    const byteCharacters = atob(content);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    blob = new Blob([byteArray], { type: mimeType });
+                } else {
+                    // Handle text (CSV/JSON)
+                    blob = new Blob([content], { type: mimeType });
+                }
+
+                // Create a link element and trigger the download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url); // Clean up
+            });
+
+            // --- Event Listeners and Initial Setup ---
+            
+            // Listen for input changes to enable/disable button
+            fileInput.addEventListener('change', updateConvertButton);
+            pasteInput.addEventListener('input', updateConvertButton);
+            inputFormatSelect.addEventListener('change', handleInputFormatChange);
+            
+            // Initial button and mode setup
+            handleInputFormatChange(); // Ensures initial state is correct (file upload selected if Excel is the default)
+            toggleInputMode('file');
+        });
+    </script>
+</body>
+</html>
