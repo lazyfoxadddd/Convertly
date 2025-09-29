@@ -1,7 +1,7 @@
-# 🔄 ConvertL App
+# 🔄 Convertly App
 
 ## 📌 Project Overview
-ConvertL is a lightweight **web app** to convert between **JSON, CSV, and Excel (XLSX)** formats seamlessly. Perfect for developers, data enthusiasts, and anyone working with data files.
+Convertly is a lightweight **web app** to convert between **JSON, CSV, and Excel (XLSX)** formats seamlessly. Perfect for developers, data enthusiasts, and anyone working with data files.
 
 ---
 
